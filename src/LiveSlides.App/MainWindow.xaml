@@ -1,0 +1,325 @@
+<Window x:Class="LiveSlides.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Icon="/Assets/LiveSlides.ico"
+        Title="LiveSlides" Height="760" Width="1320" MinHeight="560" MinWidth="1000"
+        WindowState="Maximized"
+        Background="#2F80ED">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <!-- Brand blue: same layout language as LiveCue (green) with this app's own colour. -->
+        <SolidColorBrush x:Key="Brand" Color="#2F80ED"/>
+        <SolidColorBrush x:Key="BrandDark" Color="#1B4F9C"/>
+        <SolidColorBrush x:Key="Panel" Color="#EAF2FD"/>
+        <SolidColorBrush x:Key="RowTint" Color="#D3E4FA"/>
+        <SolidColorBrush x:Key="LiveAmber" Color="#F5A623"/>
+        <SolidColorBrush x:Key="GoGreen" Color="#2E9E4F"/>
+        <SolidColorBrush x:Key="StopRed" Color="#D64533"/>
+
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="14,8"/>
+            <Setter Property="Margin" Value="4"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="Black"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BrandDark}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <!-- Buttons never take keyboard focus: Space/Enter must always mean "next slide",
+                 never "press again the button I clicked last". -->
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8" SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Opacity" Value="0.7"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="PanelBorder" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Panel}"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="10"/>
+            <Setter Property="Margin" Value="6"/>
+        </Style>
+        <Style x:Key="PanelTitle" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{StaticResource BrandDark}"/>
+            <Setter Property="Margin" Value="2,0,0,6"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="6">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- ===== Toolbar ===== -->
+        <Border Grid.Row="0" Style="{StaticResource PanelBorder}">
+            <DockPanel LastChildFill="True">
+                <Button DockPanel.Dock="Left" Content="📁  Cartella…" Click="ChooseFolder_Click" FontWeight="Bold"/>
+                <Button DockPanel.Dock="Left" Content="↻  Aggiorna" Click="Refresh_Click" IsEnabled="{Binding HasFolder}"
+                        ToolTip="Rilegge la cartella: aggiunge i file nuovi e ricarica quelli modificati"/>
+
+                <Button DockPanel.Dock="Right" Content="■  STOP  (Esc)" Click="Stop_Click" IsEnabled="{Binding IsLive}"
+                        Background="{StaticResource StopRed}" Foreground="White" FontWeight="Bold" FontSize="15" Padding="18,10"/>
+                <Button DockPanel.Dock="Right" Content="▶  AVVIA  (F5)" Click="Start_Click" IsEnabled="{Binding IsNotLive}"
+                        Background="{StaticResource GoGreen}" Foreground="White" FontWeight="Bold" FontSize="15" Padding="18,10"/>
+                <Button DockPanel.Dock="Right" Content="↻" Click="RefreshTargets_Click" Padding="10,8"
+                        ToolTip="Rileva di nuovo i monitor collegati" IsEnabled="{Binding IsNotLive}"/>
+                <ComboBox DockPanel.Dock="Right" ItemsSource="{Binding Targets}" SelectedItem="{Binding SelectedTarget}"
+                          IsEnabled="{Binding IsNotLive}" Width="330" VerticalAlignment="Center" Padding="6,5"/>
+                <TextBlock DockPanel.Dock="Right" Text="Uscita:" VerticalAlignment="Center" Margin="12,0,6,0" FontWeight="Bold"/>
+
+                <TextBlock Text="{Binding FolderLabel}" VerticalAlignment="Center" Margin="10,0" TextTrimming="CharacterEllipsis"/>
+            </DockPanel>
+        </Border>
+
+        <!-- ===== Content ===== -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="380"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="430"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left: running order + tappo -->
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Style="{StaticResource PanelBorder}">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource PanelTitle}" Text="SCALETTA — trascina per cambiare l'ordine"/>
+                        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="▲ Su" Click="MoveUp_Click"/>
+                            <Button Content="▼ Giù" Click="MoveDown_Click"/>
+                        </StackPanel>
+                        <ListBox x:Name="DeckList" ItemsSource="{Binding Decks}" SelectedItem="{Binding SelectedDeck}"
+                                 AllowDrop="True" BorderThickness="0" Background="Transparent"
+                                 HorizontalContentAlignment="Stretch"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 PreviewMouseLeftButtonDown="DeckList_PreviewMouseLeftButtonDown"
+                                 PreviewMouseMove="DeckList_PreviewMouseMove"
+                                 DragOver="DeckList_DragOver" Drop="DeckList_Drop">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Padding" Value="0"/>
+                                    <Setter Property="Margin" Value="0,2"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListBoxItem">
+                                                <Border x:Name="Row" Background="{StaticResource RowTint}" CornerRadius="6"
+                                                        BorderThickness="2" BorderBrush="Transparent" Padding="6,5">
+                                                    <ContentPresenter/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter TargetName="Row" Property="BorderBrush" Value="{StaticResource BrandDark}"/>
+                                                    </Trigger>
+                                                    <DataTrigger Binding="{Binding IsLive}" Value="True">
+                                                        <Setter TargetName="Row" Property="Background" Value="{StaticResource LiveAmber}"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsEnabled}" Value="False">
+                                                        <Setter TargetName="Row" Property="Opacity" Value="0.45"/>
+                                                    </DataTrigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Left" Text="⠿" FontSize="18" Foreground="#607D9B" VerticalAlignment="Center"
+                                                   Margin="0,0,6,0" Cursor="SizeAll" ToolTip="Trascina per spostare"/>
+                                        <CheckBox DockPanel.Dock="Left" IsChecked="{Binding IsEnabled}" VerticalAlignment="Center" Focusable="False"
+                                                  ToolTip="In scaletta: togli la spunta per saltare questo file"/>
+                                        <Border DockPanel.Dock="Left" Background="{StaticResource BrandDark}" CornerRadius="4" Padding="5,2" Margin="8,0"
+                                                VerticalAlignment="Center" MinWidth="36">
+                                            <TextBlock Text="{Binding TypeLabel}" Foreground="White" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                        </Border>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding FilePath}"/>
+                                            <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="#33475B" TextTrimming="CharacterEllipsis"
+                                                       ToolTip="{Binding StatusText}"/>
+                                        </StackPanel>
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+                </Border>
+
+                <Border Grid.Row="1" Style="{StaticResource PanelBorder}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource PanelTitle}" Text="TAPPO — immagine tra una presentazione e l'altra"/>
+                        <DockPanel>
+                            <Border DockPanel.Dock="Left" Width="144" Height="81" Background="Black" CornerRadius="4" Margin="0,0,10,0">
+                                <Image Source="{Binding TappoPreview}" Stretch="Uniform"/>
+                            </Border>
+                            <StackPanel>
+                                <TextBlock Text="{Binding TappoLabel}" TextTrimming="CharacterEllipsis" Margin="4,0,0,2" FontWeight="SemiBold"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="Scegli…" Click="ChooseTappo_Click"/>
+                                    <Button Content="Togli" Click="RemoveTappo_Click"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </DockPanel>
+                        <CheckBox Content="Prima della prima presentazione" IsChecked="{Binding TappoAtStart}" Margin="2,8,0,2" Focusable="False"/>
+                        <CheckBox Content="Tra una presentazione e l'altra" IsChecked="{Binding TappoBetween}" Margin="2,2" Focusable="False"/>
+                        <CheckBox Content="Dopo l'ultima presentazione" IsChecked="{Binding TappoAtEnd}" Margin="2,2" Focusable="False"/>
+                        <StackPanel Orientation="Horizontal" Margin="2,8,0,0">
+                            <TextBlock Text="Dissolvenza tra le slide:" VerticalAlignment="Center"/>
+                            <TextBox Text="{Binding FadeMs, UpdateSourceTrigger=LostFocus}" Width="60" Margin="8,0,6,0" Padding="3"
+                                     HorizontalContentAlignment="Right" KeyDown="TextBox_CommitOnEnter"/>
+                            <TextBlock Text="ms  (0 = stacco netto)" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Centre: slides of the selected deck -->
+            <Border Grid.Column="1" Style="{StaticResource PanelBorder}">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Style="{StaticResource PanelTitle}">
+                        <Run Text="SLIDE — "/><Run Text="{Binding SelectedDeck.Name, Mode=OneWay, FallbackValue='nessun file selezionato'}"/><Run Text="   (doppio clic = manda in onda)"/>
+                    </TextBlock>
+                    <ListBox x:Name="ThumbList" ItemsSource="{Binding SelectedDeck.Thumbs}" BorderThickness="0" Background="Transparent"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             MouseDoubleClick="ThumbList_MouseDoubleClick">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel/>
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="Cell" Margin="4" Padding="4" CornerRadius="6" Background="{StaticResource RowTint}"
+                                                    BorderThickness="3" BorderBrush="Transparent">
+                                                <ContentPresenter/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="Cell" Property="BorderBrush" Value="{StaticResource BrandDark}"/>
+                                                </Trigger>
+                                                <DataTrigger Binding="{Binding IsLive}" Value="True">
+                                                    <Setter TargetName="Cell" Property="Background" Value="{StaticResource LiveAmber}"/>
+                                                    <Setter TargetName="Cell" Property="BorderBrush" Value="{StaticResource LiveAmber}"/>
+                                                </DataTrigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Width="192">
+                                    <Border Width="192" Height="108" Background="Black">
+                                        <Image Source="{Binding Image}" Stretch="Uniform"/>
+                                    </Border>
+                                    <TextBlock Text="{Binding Number}" HorizontalAlignment="Center" FontWeight="Bold" Margin="0,3,0,0"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <!-- Right: on air / next / transport -->
+            <Border Grid.Column="2" Style="{StaticResource PanelBorder}">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Bottom">
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="2*"/>
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="0" Content="◀  INDIETRO" Click="Previous_Click" IsEnabled="{Binding IsLive}"
+                                    FontSize="14" FontWeight="Bold" Padding="8,20"/>
+                            <Button Grid.Column="1" Content="AVANTI  ▶" Click="Next_Click" IsEnabled="{Binding IsLive}"
+                                    Background="{StaticResource GoGreen}" Foreground="White" FontSize="20" FontWeight="Bold" Padding="8,20"/>
+                        </Grid>
+                        <Button Content="TAPPO adesso  (T)" Click="Tappo_Click" IsEnabled="{Binding IsLive}"
+                                Background="{StaticResource LiveAmber}" FontWeight="Bold" Padding="8,10"
+                                ToolTip="Mostra subito il tappo senza perdere il punto; di nuovo T (o avanti) per tornare alla slide"/>
+                        <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#33475B" Margin="4,6,4,0"
+                                   Text="Tastiera / telecomando: → ↓ PagGiù Spazio Invio = avanti · ← ↑ PagSu = indietro · Home / Fine · T = tappo · Esc = stop"/>
+                        <StackPanel Orientation="Horizontal" Margin="2,10,0,0">
+                            <CheckBox Content="Controllo remoto (Companion) — porta" IsChecked="{Binding RemoteEnabled}" VerticalAlignment="Center" Focusable="False"/>
+                            <TextBox Text="{Binding RemotePort, UpdateSourceTrigger=LostFocus}" Width="56" Margin="6,0" Padding="3"
+                                     HorizontalContentAlignment="Right" KeyDown="TextBox_CommitOnEnter"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding RemoteInfo}" TextWrapping="Wrap" FontSize="11" Foreground="#33475B" Margin="4,3,4,0"/>
+                    </StackPanel>
+
+                    <UniformGrid Rows="2" Columns="1">
+                        <DockPanel Margin="0,0,0,6">
+                            <DockPanel DockPanel.Dock="Top">
+                                <Border DockPanel.Dock="Right" CornerRadius="4" Padding="8,2" VerticalAlignment="Center" Margin="0,0,0,6">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="#8A99AB"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsLive}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource StopRed}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Foreground="White" FontWeight="Bold" FontSize="11">
+                                        <Run Text="{Binding LiveBadge, Mode=OneWay}"/><Run Text="  "/><Run Text="{Binding PositionText, Mode=OneWay}"/>
+                                    </TextBlock>
+                                </Border>
+                                <TextBlock Style="{StaticResource PanelTitle}" Text="IN ONDA"/>
+                            </DockPanel>
+                            <TextBlock DockPanel.Dock="Bottom" Text="{Binding CurrentLabel}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="2,3,0,0"/>
+                            <Border Background="Black" BorderBrush="{StaticResource StopRed}" BorderThickness="3">
+                                <Image Source="{Binding CurrentPreview}" Stretch="Uniform"/>
+                            </Border>
+                        </DockPanel>
+                        <DockPanel Margin="0,6,0,0">
+                            <TextBlock DockPanel.Dock="Top" Style="{StaticResource PanelTitle}" Text="PROSSIMA"/>
+                            <TextBlock DockPanel.Dock="Bottom" Text="{Binding NextLabel}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="2,3,0,0"/>
+                            <Border Background="Black" BorderBrush="{StaticResource GoGreen}" BorderThickness="3">
+                                <Image Source="{Binding NextPreview}" Stretch="Uniform"/>
+                            </Border>
+                        </DockPanel>
+                    </UniformGrid>
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        <!-- ===== Status bar ===== -->
+        <Border Grid.Row="2" Background="{StaticResource BrandDark}" CornerRadius="6" Margin="6,2,6,4" Padding="10,5">
+            <TextBlock Text="{Binding StatusMessage}" Foreground="White" TextTrimming="CharacterEllipsis"/>
+        </Border>
+    </Grid>
+</Window>

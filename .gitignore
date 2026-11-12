@@ -1,0 +1,22 @@
+## .NET build output
+bin/
+obj/
+
+## Visual Studio / Rider
+.vs/
+*.user
+*.suo
+
+## Test media files (not part of the project source)
+*.mp4
+*.mov
+*.mkv
+*.wav
+*.mp3
+
+## OS
+Thumbs.db
+.DS_Store
+
+## Build/installer output
+artifacts/

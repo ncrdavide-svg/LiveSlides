@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\LiveSlides.Core\LiveSlides.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\LiveSlides.ico" />
+    <Resource Include="Assets\LiveSlides.png" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- The Windows 10 SDK target gives access to Windows.Data.Pdf, the PDF renderer built
+         into Windows 10/11: no third-party PDF library to ship. -->
+    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyName>LiveSlides</AssemblyName>
+    <Product>LiveSlides</Product>
+    <Version>0.1.0</Version>
+    <ApplicationIcon>Assets\LiveSlides.ico</ApplicationIcon>
+  </PropertyGroup>
+
+</Project>
