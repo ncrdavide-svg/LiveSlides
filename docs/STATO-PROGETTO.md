@@ -67,7 +67,7 @@ Vecchie note sui video (player rimosso, restano solo come storia): pausa e riavv
 
 ## Non ancora fatto
 
-- Nome definitivo dell'app (ora "LiveSlides") e logo.
+- Nome definitivo dell'app (ora "LiveSlides"). Logo fatto il 13 nov 2026 (`tools/make_icon.py`, stessa famiglia di LiveCue e LiveCount).
 - Installer Inno Setup (riusare `installer/` di LiveCue).
 - Esportazione pagina Companion, finestra "Buy me a coffee" (presenti nelle altre due app).
 - Repository GitHub: il progetto per ora esiste solo come zip dei sorgenti.
