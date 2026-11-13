@@ -47,6 +47,10 @@ Prima versione (0.1.0) scritta in una sessione cloud (Linux). Compila senza erro
 - Corretto con `FocusGuard`: durante lo show LiveSlides si riprende subito la tastiera se un programma di presentazione la prende senza che l'operatore abbia cliccato o usato Alt+Tab. Prova con tasti veri: prima 0 su 18, ora 18 su 18.
 - Non provato: telecomando fisico (manda gli stessi tasti PagSu/PagGiù), PowerPoint.
 
+**13 nov 2026, quarta parte — il messaggio «In attesa della connessione alla stampante...» (l'utente lo vedeva a ogni operazione):**
+- Viene da LibreOffice, non dai PDF: compare solo al primo avvio di LibreOffice con un profilo nuovo (la stampante predefinita di questo PC è di rete). Lo si vedeva spesso perché nelle prove creavo continuamente profili nuovi.
+- Corretto: i profili usati durante lo show sono copiati da quello della conversione, già inizializzato. Il messaggio può comparire al massimo una volta su un PC nuovo, al primo caricamento di una cartella con dei PowerPoint, mai durante lo show. Effetto collaterale utile: la prima presentazione dello show si apre in ~2 s invece di ~10.
+
 Vecchie note sui video (player rimosso, restano solo come storia): pausa e riavvio, avanzamento automatico a fine video, barra del tempo rimanente, volume, passaggio diretto video → video senza tappo (previsto nel codice ma non provato).
 
 ## Provato su Windows

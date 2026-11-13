@@ -368,7 +368,9 @@ public sealed class LibreOfficePlayer : IPresentationPlayer
         var start = new ProcessStartInfo(_python) { UseShellExecute = false, CreateNoWindow = true };
         start.ArgumentList.Add(script);
         start.ArgumentList.Add(_soffice);
-        start.ArgumentList.Add(Path.Combine(App.DataFolder, $"lo-show-profile-{slot.Number}"));
+        var profile = Path.Combine(App.DataFolder, $"lo-show-profile-{slot.Number}");
+        SeedProfile(profile);
+        start.ArgumentList.Add(profile);
         start.ArgumentList.Add(slot.Port.ToString());
         slot.Bridge = Process.Start(start) ?? throw new InvalidOperationException("impossibile avviare LibreOffice");
 
@@ -383,6 +385,38 @@ public sealed class LibreOfficePlayer : IPresentationPlayer
             catch (SocketException) { await Task.Delay(100); }
         }
         throw new InvalidOperationException("LibreOffice non risponde");
+    }
+
+    /// <summary>
+    /// A brand-new LibreOffice profile costs about 10 s at its first start and, on a PC whose
+    /// default printer is on the network, shows Windows' "Waiting for the printer connection"
+    /// box. The show's profiles are therefore copied from the conversion profile, which by the
+    /// time a show runs has already been through that first start (when the folder was loaded).
+    /// </summary>
+    private static void SeedProfile(string profile)
+    {
+        var template = Path.Combine(PresentationConverter.ProfileFolder, "user");
+        var target = Path.Combine(profile, "user");
+        if (Directory.Exists(target) || !File.Exists(Path.Combine(template, "registrymodifications.xcu"))) return;
+        try
+        {
+            foreach (var source in Directory.EnumerateFiles(template, "*", SearchOption.AllDirectories))
+            {
+                var relative = Path.GetRelativePath(template, source);
+                // Not the lock of a conversion that may be running, nor old crash reports.
+                if (relative == ".lock" || relative.StartsWith("crash" + Path.DirectorySeparatorChar)) continue;
+                var destination = Path.Combine(target, relative);
+                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                File.Copy(source, destination, true);
+            }
+            Trace($"profile {Path.GetFileName(profile)} copied from the conversion profile");
+        }
+        catch (Exception ex)
+        {
+            // Half a copy is worse than none: LibreOffice then builds a fresh profile itself.
+            App.LogError(ex);
+            try { Directory.Delete(target, true); } catch { /* nothing to clean */ }
+        }
     }
 
     private async Task<JsonElement> SendAsync(Slot slot, params string[] fields)

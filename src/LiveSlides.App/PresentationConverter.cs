@@ -17,6 +17,9 @@ public static class PresentationConverter
     private static readonly SemaphoreSlim Gate = new(1, 1);
     private static string CacheFolder => Path.Combine(App.DataFolder, "cache");
 
+    /// <summary>The private LibreOffice profile used for conversions (also the template for the show's profiles).</summary>
+    public static string ProfileFolder => Path.Combine(App.DataFolder, "lo-profile");
+
     public static string? FindSoffice(string? manualPath)
     {
         var candidates = new List<string?> { manualPath };
@@ -87,7 +90,7 @@ public static class PresentationConverter
     {
         // A private LibreOffice profile: with the user's own profile, a LibreOffice window that
         // is already open would swallow the command and nothing would be converted.
-        var profile = new Uri(Path.Combine(App.DataFolder, "lo-profile")).AbsoluteUri;
+        var profile = new Uri(ProfileFolder).AbsoluteUri;
         var start = new ProcessStartInfo(soffice)
         {
             UseShellExecute = false,
