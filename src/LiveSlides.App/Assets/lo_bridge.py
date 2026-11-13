@@ -4,7 +4,7 @@ Runs inside LibreOffice's own Python. Starts a private LibreOffice instance, the
 commands from LiveSlides so that presentations are played by Impress itself (animations,
 transitions and embedded media included) instead of being flattened to images.
 
-argv: <soffice.bin> <profile dir> <tcp port>
+argv: <soffice.bin> <profile dir> <tcp port, 0 = any free port>
 Protocol: one TCP connection per command on 127.0.0.1:<port>; request = one line of
 tab-separated fields, reply = one JSON line.
 """
@@ -331,7 +331,9 @@ def main():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind(("127.0.0.1", PORT))
     server.listen(4)
-    print("READY", flush=True)
+    # The port actually bound: with 0 the system picks a free one, so no other program can
+    # take it between the choice and the bind. LiveSlides reads it from this line.
+    print("READY %d" % server.getsockname()[1], flush=True)
     while True:
         conn, _ = server.accept()
         with conn:

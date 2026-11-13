@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -38,11 +39,19 @@ public static class PresentationConverter
     }
 
     /// <returns>Path of the PDF version of <paramref name="sourcePath"/>.</returns>
-    public static async Task<string> ConvertAsync(string sourcePath, string? manualSofficePath, CancellationToken token)
+    /// <param name="engine">AppSettings.PresentationEngine: the conversion uses the same program that plays
+    /// the show, so thumbnails and the NEXT preview look like what goes on air.</param>
+    public static async Task<string> ConvertAsync(string sourcePath, string? manualSofficePath, string? engine, CancellationToken token)
     {
+        var soffice = FindSoffice(manualSofficePath);
+        var powerPointType = Type.GetTypeFromProgID("PowerPoint.Application");
+        // PowerPoint when it is the program playing the show (see PresentationPlayers.Create).
+        var usePowerPoint = powerPointType is not null
+                            && (!string.Equals(engine, "libreoffice", StringComparison.OrdinalIgnoreCase) || soffice is null);
+
         var info = new FileInfo(sourcePath);
         var key = Convert.ToHexString(SHA1.HashData(Encoding.UTF8.GetBytes(
-            $"{info.FullName.ToLowerInvariant()}|{info.Length}|{info.LastWriteTimeUtc.Ticks}")));
+            $"{info.FullName.ToLowerInvariant()}|{info.Length}|{info.LastWriteTimeUtc.Ticks}|{(usePowerPoint ? "pp" : "lo")}")));
         Directory.CreateDirectory(CacheFolder);
         var cached = Path.Combine(CacheFolder, key + ".pdf");
         if (File.Exists(cached)) return cached;
@@ -58,13 +67,25 @@ public static class PresentationConverter
             try
             {
                 var produced = Path.Combine(workFolder, Path.GetFileNameWithoutExtension(sourcePath) + ".pdf");
-                var soffice = FindSoffice(manualSofficePath);
-                if (soffice is not null)
+                if (usePowerPoint)
+                {
+                    try
+                    {
+                        // A dialog PowerPoint shows by itself (repair, protected view...) would hang
+                        // it: after 2 minutes LibreOffice takes over, if there is one.
+                        await ConvertWithPowerPointAsync(powerPointType!, sourcePath, produced).WaitAsync(TimeSpan.FromMinutes(2), token);
+                    }
+                    catch (Exception ex) when (soffice is not null && !token.IsCancellationRequested)
+                    {
+                        App.LogError(ex);
+                        foreach (var leftover in Directory.GetFiles(workFolder)) File.Delete(leftover);
+                        await ConvertWithLibreOfficeAsync(soffice, sourcePath, workFolder, token);
+                    }
+                }
+                else if (soffice is not null)
                     await ConvertWithLibreOfficeAsync(soffice, sourcePath, workFolder, token);
-                else if (Type.GetTypeFromProgID("PowerPoint.Application") is { } powerPointType)
-                    await ConvertWithPowerPointAsync(powerPointType, sourcePath, produced);
                 else
-                    throw new InvalidOperationException("LibreOffice non trovato: serve per leggere i PowerPoint");
+                    throw new InvalidOperationException("Né PowerPoint né LibreOffice trovati: servono per leggere i PowerPoint");
 
                 if (!File.Exists(produced))
                 {
@@ -141,11 +162,12 @@ public static class PresentationConverter
         var thread = new Thread(() =>
         {
             dynamic? app = null;
+            dynamic? presentation = null;
             try
             {
                 app = Activator.CreateInstance(powerPointType)!;
                 // Open(FileName, ReadOnly: true, Untitled: false, WithWindow: false); MsoTriState true = -1.
-                dynamic presentation = app.Presentations.Open(sourcePath, -1, 0, 0);
+                presentation = app.Presentations.Open(sourcePath, -1, 0, 0);
                 presentation.SaveAs(pdfPath, 32 /* ppSaveAsPDF */);
                 presentation.Close();
                 done.SetResult();
@@ -156,7 +178,12 @@ public static class PresentationConverter
             }
             finally
             {
-                try { app?.Quit(); } catch { /* best effort */ }
+                // PowerPoint runs as a single instance: it may be playing the show right now, or be
+                // the operator's own. Quit only if nothing else is open in it.
+                try { if (app is not null && (int)app.Presentations.Count == 0) app.Quit(); } catch { /* best effort */ }
+                // Release the COM references at once, so PowerPoint does not linger in the background.
+                try { if (presentation is not null) Marshal.FinalReleaseComObject(presentation); } catch { /* already released */ }
+                try { if (app is not null) Marshal.FinalReleaseComObject(app); } catch { /* already released */ }
             }
         })
         { IsBackground = true, Name = "PowerPoint export" };

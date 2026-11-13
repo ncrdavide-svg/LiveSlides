@@ -277,7 +277,12 @@
                                 ToolTip="Mostra subito il tappo senza perdere il punto; di nuovo T (o avanti) per tornare alla slide"/>
                         <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#33475B" Margin="4,6,4,0"
                                    Text="Tastiera / telecomando: → ↓ PagGiù Spazio Invio = avanti · ← ↑ PagSu = indietro · Home / Fine · T = tappo · Esc = stop"/>
-                        <StackPanel Orientation="Horizontal" Margin="2,10,0,0">
+                        <DockPanel Margin="2,10,0,0">
+                            <TextBlock DockPanel.Dock="Left" Text="Presentazioni:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ComboBox ItemsSource="{Binding Engines}" SelectedItem="{Binding SelectedEngine}" IsEnabled="{Binding IsNotLive}" Padding="6,4"
+                                      ToolTip="Programma che riproduce i PowerPoint (animazioni, transizioni, filmati). Cambiandolo, le presentazioni vengono riconvertite per le miniature."/>
+                        </DockPanel>
+                        <StackPanel Orientation="Horizontal" Margin="2,8,0,0">
                             <CheckBox Content="Controllo remoto (Companion) — porta" IsChecked="{Binding RemoteEnabled}" VerticalAlignment="Center" Focusable="False"/>
                             <TextBox Text="{Binding RemotePort, UpdateSourceTrigger=LostFocus}" Width="56" Margin="6,0" Padding="3"
                                      HorizontalContentAlignment="Right" KeyDown="TextBox_CommitOnEnter"/>

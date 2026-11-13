@@ -51,6 +51,14 @@ Prima versione (0.1.0) scritta in una sessione cloud (Linux). Compila senza erro
 - Viene da LibreOffice, non dai PDF: compare solo al primo avvio di LibreOffice con un profilo nuovo (la stampante predefinita di questo PC è di rete). Lo si vedeva spesso perché nelle prove creavo continuamente profili nuovi.
 - Corretto: i profili usati durante lo show sono copiati da quello della conversione, già inizializzato. Il messaggio può comparire al massimo una volta su un PC nuovo, al primo caricamento di una cartella con dei PowerPoint, mai durante lo show. Effetto collaterale utile: la prima presentazione dello show si apre in ~2 s invece di ~10.
 
+**13 nov 2026, quinta parte — revisione esterna del codice (versione 0.2.1):**
+- Corretto: la conversione in PDF usa lo stesso programma della riproduzione (prima, con PowerPoint e LibreOffice entrambi installati, miniature da LibreOffice e show da PowerPoint), con ripiego su LibreOffice se PowerPoint fallisce o si blocca.
+- Corretto (trovato durante la revisione, più grave): la conversione con PowerPoint chiudeva PowerPoint alla fine, anche se stava riproducendo lo show. Ora lo chiude solo se non ha altri file aperti, e rilascia subito i riferimenti COM.
+- Corretto: il bridge di LibreOffice si sceglie la porta da solo; il pre-caricamento non può più far chiudere l'app per un errore imprevisto.
+- Nuovo: menu «Presentazioni» (Automatico / PowerPoint / LibreOffice / Immagini fisse), utile sul PC dello show se PowerPoint desse problemi.
+- Scartati con motivazione: vedi CLAUDE.md, «Insidie note».
+- La conversione e la riproduzione con PowerPoint restano mai provate (qui PowerPoint non c'è).
+
 Vecchie note sui video (player rimosso, restano solo come storia): pausa e riavvio, avanzamento automatico a fine video, barra del tempo rimanente, volume, passaggio diretto video → video senza tappo (previsto nel codice ma non provato).
 
 ## Provato su Windows

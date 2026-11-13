@@ -24,7 +24,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>LiveSlides</AssemblyName>
     <Product>LiveSlides</Product>
-    <Version>0.1.0</Version>
+    <Version>0.2.1</Version>
     <ApplicationIcon>Assets\LiveSlides.ico</ApplicationIcon>
   </PropertyGroup>
 

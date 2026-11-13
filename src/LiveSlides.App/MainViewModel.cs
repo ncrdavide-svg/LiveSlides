@@ -81,6 +81,30 @@ public partial class MainViewModel : ObservableObject
 
     private const string NoPresenterId = "none";
 
+    /// <summary>Who plays the presentations (AppSettings.PresentationEngine).</summary>
+    public IReadOnlyList<EngineChoice> Engines { get; } = new EngineChoice[]
+    {
+        new("auto", "Automatico (PowerPoint se c'è, se no LibreOffice)"),
+        new("powerpoint", "PowerPoint"),
+        new("libreoffice", "LibreOffice"),
+        new("static", "Immagini fisse (senza animazioni)")
+    };
+
+    public EngineChoice SelectedEngine
+    {
+        get => Engines.FirstOrDefault(e => string.Equals(e.Id, _settings.PresentationEngine ?? "auto", StringComparison.OrdinalIgnoreCase)) ?? Engines[0];
+        set
+        {
+            if (value is null || value == SelectedEngine || IsLive) return;
+            _settings.PresentationEngine = value.Id == "auto" ? null : value.Id;
+            _settings.Save();
+            Raise();
+            ResetPlayer();
+            // Thumbnails come from the same program: the presentations are converted again.
+            if (Folder is not null && Decks.Any(d => d.IsPresentation)) _ = LoadFolderAsync(Folder);
+        }
+    }
+
     private string? _folder;
     public string? Folder
     {
@@ -334,7 +358,7 @@ public partial class MainViewModel : ObservableObject
                     {
                         deck.State = DeckState.Converting;
                         StatusMessage = $"Conversione di {deck.Name}…";
-                        pdfPath = await PresentationConverter.ConvertAsync(deck.FilePath, _settings.SofficePath, token);
+                        pdfPath = await PresentationConverter.ConvertAsync(deck.FilePath, _settings.SofficePath, _settings.PresentationEngine, token);
                     }
                     deck.Pdf = await SlideRenderer.OpenPdfAsync(pdfPath);
                     deck.PageCount = (int)deck.Pdf.PageCount;

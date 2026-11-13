@@ -56,6 +56,12 @@ public interface IPresentationPlayer : IDisposable
     Task CloseAsync();
 }
 
+/// <summary>One entry of the «Presentazioni» choice in the main window.</summary>
+public sealed record EngineChoice(string Id, string Label)
+{
+    public override string ToString() => Label;
+}
+
 public static class PresentationPlayers
 {
     /// <summary>

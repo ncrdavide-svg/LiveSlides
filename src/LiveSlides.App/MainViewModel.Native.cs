@@ -35,6 +35,14 @@ public partial class MainViewModel
         => index >= 0 && index < _steps.Count && _steps[index] is { Kind: StepKind.Slide } step
            && PlaysNatively(_stepDecks[step.DeckIndex]) ? _stepDecks[step.DeckIndex] : null;
 
+    /// <summary>The operator chose another program: the next show starts with it.</summary>
+    private void ResetPlayer()
+    {
+        _player?.Dispose();
+        _player = null;
+        _playerCreated = false;
+    }
+
     /// <summary>Called when the output opens: picks the program that will play presentations.</summary>
     private void PreparePlayer(OutputTarget target)
     {
@@ -54,6 +62,8 @@ public partial class MainViewModel
 
         if (!Decks.Any(d => d.IsPresentation)) return;
         StatusMessage = target.IsWindow ? "Finestra di prova: le presentazioni vanno come immagini fisse (le animazioni solo su un monitor)"
+            : _player is null && string.Equals(_settings.PresentationEngine, "static", StringComparison.OrdinalIgnoreCase) ? "Presentazioni come immagini fisse (scelta in «Presentazioni»)"
+            : _player is null && _settings.PresentationEngine is { } engine ? $"{(engine == "powerpoint" ? "PowerPoint" : "LibreOffice")} non trovato: le presentazioni vanno come immagini fisse"
             : _player is null ? "Né PowerPoint né LibreOffice trovati: le presentazioni vanno come immagini fisse"
             : $"Le presentazioni sono riprodotte da {_player.EngineName}, con animazioni e filmati";
 
@@ -297,6 +307,13 @@ public partial class MainViewModel
     /// </summary>
     private async void PreloadNative()
     {
+        // async void (fire and forget): nothing may escape, or it would take the app down.
+        try { await PreloadNativeAsync(); }
+        catch (Exception ex) { App.LogError(ex); }
+    }
+
+    private async Task PreloadNativeAsync()
+    {
         if (_player is not { } player || _output?.MonitorBounds is not { } bounds || _index < 0) return;
         var currentDeck = _index < _steps.Count && _steps[_index].Kind == StepKind.Slide ? _stepDecks[_steps[_index].DeckIndex] : null;
         Deck? next = null;
@@ -312,7 +329,6 @@ public partial class MainViewModel
             await Task.Delay(2000);
             if (ticket != _showTicket || _player is null || _output is null) return;
         }
-        try { await player.LoadAsync(next.FilePath, bounds); }
-        catch (Exception ex) { App.LogError(ex); }
+        await player.LoadAsync(next.FilePath, bounds);
     }
 }

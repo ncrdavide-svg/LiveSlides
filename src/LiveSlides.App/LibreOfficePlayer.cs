@@ -358,33 +358,34 @@ public sealed class LibreOfficePlayer : IPresentationPlayer
                 File.WriteAllBytes(script, bytes);
         }
 
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        slot.Port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
 
         // Profiles of their own: two LibreOffice runs on one profile merge into one process (and
         // the PDF conversion uses yet another one).
-        var start = new ProcessStartInfo(_python) { UseShellExecute = false, CreateNoWindow = true };
+        var start = new ProcessStartInfo(_python) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true };
         start.ArgumentList.Add(script);
         start.ArgumentList.Add(_soffice);
         var profile = Path.Combine(App.DataFolder, $"lo-show-profile-{slot.Number}");
         SeedProfile(profile);
         start.ArgumentList.Add(profile);
-        start.ArgumentList.Add(slot.Port.ToString());
-        slot.Bridge = Process.Start(start) ?? throw new InvalidOperationException("impossibile avviare LibreOffice");
-
-        for (var i = 0; i < 100; i++)
+        // Port 0: the bridge binds a free port itself and announces it ("READY <port>"). Picking
+        // a port here and passing it on would leave a moment for another program to take it.
+        start.ArgumentList.Add("0");
+        var ready = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var bridge = new Process { StartInfo = start };
+        bridge.OutputDataReceived += (_, e) =>
         {
-            try
-            {
-                using var probe = new TcpClient();
-                await probe.ConnectAsync(IPAddress.Loopback, slot.Port);
-                return;
-            }
-            catch (SocketException) { await Task.Delay(100); }
+            if (e.Data is { } line && line.StartsWith("READY ") && int.TryParse(line[6..], out var port)) ready.TrySetResult(port);
+        };
+        if (!bridge.Start()) throw new InvalidOperationException("impossibile avviare LibreOffice");
+        // Read continuously: a full output pipe would block the bridge.
+        bridge.BeginOutputReadLine();
+        slot.Bridge = bridge;
+        try { slot.Port = await ready.Task.WaitAsync(TimeSpan.FromSeconds(15)); }
+        catch (TimeoutException)
+        {
+            try { bridge.Kill(true); } catch { /* already gone */ }
+            throw new InvalidOperationException("LibreOffice non risponde");
         }
-        throw new InvalidOperationException("LibreOffice non risponde");
     }
 
     /// <summary>
