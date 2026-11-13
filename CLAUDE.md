@@ -12,7 +12,7 @@ Repository: https://github.com/ncrdavide-svg/LiveSlides (pubblico, come LiveCue 
 dotnet build LiveSlides.sln
 dotnet test
 dotnet run --project src/LiveSlides.App
-dotnet publish src/LiveSlides.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o artifacts/publish
+powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1 -Version 0.2.0   # → artifacts\installer\LiveSlides-Setup-<ver>.exe (serve Inno Setup 6)
 python tools/make_icon.py        # rigenera Assets/LiveSlides.ico (serve Pillow)
 ```
 

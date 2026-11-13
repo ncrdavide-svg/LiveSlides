@@ -68,6 +68,6 @@ Vecchie note sui video (player rimosso, restano solo come storia): pausa e riavv
 ## Non ancora fatto
 
 - Nome definitivo dell'app (ora "LiveSlides"). Logo fatto il 13 nov 2026 (`tools/make_icon.py`, stessa famiglia di LiveCue e LiveCount).
-- Installer Inno Setup (riusare `installer/` di LiveCue).
+- Installer: fatto il 13 nov 2026 (`installer/`, come LiveCue). Provato qui: installazione silenziosa "solo per me", avvio dell'app installata, disinstallazione pulita. Non provato su un altro PC.
 - Esportazione pagina Companion, finestra "Buy me a coffee" (presenti nelle altre due app).
 - Tasti globali (telecomando funzionante anche quando LiveSlides non ha il focus).
