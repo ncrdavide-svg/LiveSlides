@@ -2,6 +2,8 @@
 
 App della suite LIVE (con LiveCount e LiveCue) per mandare in onda **PowerPoint e PDF in sequenza, come un'unica presentazione**, senza schermate nere, con immagine "tappo" tra una presentazione e l'altra. Windows, WPF, .NET 9. L'utente parla **italiano**: rispondi in italiano.
 
+Repository: https://github.com/ncrdavide-svg/LiveSlides (pubblico, come LiveCue e LiveCount).
+
 **Stato del lavoro e prossimi passi: `docs/STATO-PROGETTO.md`** (aggiornalo a fine sessione).
 
 ## Comandi
