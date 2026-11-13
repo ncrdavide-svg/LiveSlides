@@ -25,6 +25,10 @@ public partial class MainWindow : Window
             // Keep the slide on air visible in the thumbnails panel as the show advances.
             if (e.PropertyName == nameof(MainViewModel.LiveThumb) && _viewModel.LiveThumb is { } live)
                 Dispatcher.BeginInvoke(() => ThumbList.ScrollIntoView(live), System.Windows.Threading.DispatcherPriority.Background);
+            // Same for the running order: the selection follows the deck on air (see
+            // MainViewModel.UpdateLabels), and a long list scrolls so that it stays in view.
+            if (e.PropertyName == nameof(MainViewModel.SelectedDeck) && _viewModel.SelectedDeck is { } deck)
+                Dispatcher.BeginInvoke(() => DeckList.ScrollIntoView(deck), System.Windows.Threading.DispatcherPriority.Background);
         };
         Loaded += async (_, _) =>
         {

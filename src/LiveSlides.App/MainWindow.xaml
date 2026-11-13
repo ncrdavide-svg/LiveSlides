@@ -87,8 +87,13 @@
                         Background="{StaticResource GoGreen}" Foreground="White" FontWeight="Bold" FontSize="15" Padding="18,10"/>
                 <Button DockPanel.Dock="Right" Content="↻" Click="RefreshTargets_Click" Padding="10,8"
                         ToolTip="Rileva di nuovo i monitor collegati" IsEnabled="{Binding IsNotLive}"/>
+                <ComboBox DockPanel.Dock="Right" ItemsSource="{Binding PresenterTargets}" SelectedItem="{Binding SelectedPresenterTarget}"
+                          IsEnabled="{Binding IsNotLive}" Width="250" VerticalAlignment="Center" Padding="6,5"
+                          ToolTip="Schermo del relatore: durante le presentazioni la visualizzazione relatore (slide attuale, successiva, note, tempo); con PDF e tappo, la stessa immagine dell'uscita"/>
+                <TextBlock DockPanel.Dock="Right" Text="Relatore:" VerticalAlignment="Center" Margin="10,0,6,0" FontWeight="Bold"/>
                 <ComboBox DockPanel.Dock="Right" ItemsSource="{Binding Targets}" SelectedItem="{Binding SelectedTarget}"
-                          IsEnabled="{Binding IsNotLive}" Width="330" VerticalAlignment="Center" Padding="6,5"/>
+                          IsEnabled="{Binding IsNotLive}" Width="250" VerticalAlignment="Center" Padding="6,5"
+                          ToolTip="Schermo dove va a pieno schermo la presentazione"/>
                 <TextBlock DockPanel.Dock="Right" Text="Uscita:" VerticalAlignment="Center" Margin="12,0,6,0" FontWeight="Bold"/>
 
                 <TextBlock Text="{Binding FolderLabel}" VerticalAlignment="Center" Margin="10,0" TextTrimming="CharacterEllipsis"/>
@@ -301,16 +306,20 @@
                                 <TextBlock Style="{StaticResource PanelTitle}" Text="IN ONDA"/>
                             </DockPanel>
                             <TextBlock DockPanel.Dock="Bottom" Text="{Binding CurrentLabel}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="2,3,0,0"/>
-                            <Border Background="Black" BorderBrush="{StaticResource StopRed}" BorderThickness="3">
-                                <Image Source="{Binding CurrentPreview}" Stretch="Uniform"/>
-                            </Border>
+                            <Viewbox Stretch="Uniform">
+                                <Border Background="Black" BorderBrush="{StaticResource StopRed}" BorderThickness="3" Width="486" Height="276">
+                                    <Image Source="{Binding CurrentPreview}" Stretch="Uniform"/>
+                                </Border>
+                            </Viewbox>
                         </DockPanel>
                         <DockPanel Margin="0,6,0,0">
                             <TextBlock DockPanel.Dock="Top" Style="{StaticResource PanelTitle}" Text="PROSSIMA"/>
                             <TextBlock DockPanel.Dock="Bottom" Text="{Binding NextLabel}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="2,3,0,0"/>
-                            <Border Background="Black" BorderBrush="{StaticResource GoGreen}" BorderThickness="3">
-                                <Image Source="{Binding NextPreview}" Stretch="Uniform"/>
-                            </Border>
+                            <Viewbox Stretch="Uniform">
+                                <Border Background="Black" BorderBrush="{StaticResource GoGreen}" BorderThickness="3" Width="486" Height="276">
+                                    <Image Source="{Binding NextPreview}" Stretch="Uniform"/>
+                                </Border>
+                            </Viewbox>
                         </DockPanel>
                     </UniformGrid>
                 </DockPanel>

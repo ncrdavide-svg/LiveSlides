@@ -6,8 +6,12 @@ namespace LiveSlides.App;
 
 public partial class App : Application
 {
+    // LIVESLIDES_DATA overrides the folder: lets a second, fully separate instance (own settings,
+    // own remote port) run for testing next to the one being used for a show.
     public static string DataFolder { get; } =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LiveSlides");
+        Environment.GetEnvironmentVariable("LIVESLIDES_DATA") is { Length: > 0 } custom
+            ? custom
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LiveSlides");
 
     /// <summary>%LOCALAPPDATA%\LiveSlides\errors.log — every unexpected error is appended here.</summary>
     public static string ErrorLogPath { get; } = Path.Combine(DataFolder, "errors.log");

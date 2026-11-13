@@ -7,6 +7,8 @@
   <ItemGroup>
     <Resource Include="Assets\LiveSlides.ico" />
     <Resource Include="Assets\LiveSlides.png" />
+    <!-- Run by LibreOffice's Python, not by us: written to the data folder at run time. -->
+    <EmbeddedResource Include="Assets\lo_bridge.py" />
   </ItemGroup>
 
   <PropertyGroup>

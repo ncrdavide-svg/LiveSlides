@@ -8,7 +8,7 @@ using LiveSlides.Core;
 
 namespace LiveSlides.App;
 
-public class MainViewModel : ObservableObject
+public partial class MainViewModel : ObservableObject
 {
     private const int ThumbWidth = 256;
     private const int ThumbHeight = 144;
@@ -25,6 +25,7 @@ public class MainViewModel : ObservableObject
     private int _showTicket;
 
     private OutputWindow? _output;
+    private FocusGuard? _focusGuard;
     private int _renderWidth = 1920;
     private int _renderHeight = 1080;
 
@@ -62,6 +63,23 @@ public class MainViewModel : ObservableObject
             _settings.Save();
         }
     }
+
+    /// <summary>Screens for the presenter view, plus "none".</summary>
+    public ObservableCollection<OutputTarget> PresenterTargets { get; } = new();
+
+    private OutputTarget? _selectedPresenterTarget;
+    public OutputTarget? SelectedPresenterTarget
+    {
+        get => _selectedPresenterTarget;
+        set
+        {
+            if (!Set(ref _selectedPresenterTarget, value) || value is null) return;
+            _settings.PresenterTargetId = value.Id;
+            _settings.Save();
+        }
+    }
+
+    private const string NoPresenterId = "none";
 
     private string? _folder;
     public string? Folder
@@ -166,6 +184,19 @@ public class MainViewModel : ObservableObject
                           ?? Targets.FirstOrDefault(t => !t.IsWindow && !t.IsPrimary)
                           ?? Targets.First(t => t.IsWindow);
         Raise(nameof(SelectedTarget));
+
+        var wantedPresenter = _selectedPresenterTarget?.Id ?? _settings.PresenterTargetId;
+        PresenterTargets.Clear();
+        PresenterTargets.Add(new OutputTarget(NoPresenterId, "Nessuno", null, false));
+        foreach (var target in latest.Where(t => !t.IsWindow)) PresenterTargets.Add(target);
+        // Default, only on a PC with three or more screens: the one that is neither the
+        // operator's (primary) nor the output.
+        _selectedPresenterTarget = PresenterTargets.FirstOrDefault(t => t.Id == wantedPresenter)
+                                   ?? (wantedPresenter is null && latest.Count(t => !t.IsWindow) >= 3
+                                       ? PresenterTargets.FirstOrDefault(t => !t.IsWindow && t.Bounds is not null && !t.IsPrimary && t.Id != _selectedTarget.Id)
+                                       : null)
+                                   ?? PresenterTargets[0];
+        Raise(nameof(SelectedPresenterTarget));
     }
 
     // ---------------------------------------------------------------- folder loading
@@ -336,8 +367,7 @@ public class MainViewModel : ObservableObject
                 if (token.IsCancellationRequested) return;
                 try
                 {
-                    thumb.Image = deck.IsImage
-                        ? await SlideRenderer.LoadImageAsync(deck.FilePath, ThumbWidth, ThumbHeight)
+                    thumb.Image = deck.IsImage ? await SlideRenderer.LoadImageAsync(deck.FilePath, ThumbWidth, ThumbHeight)
                         : await SlideRenderer.RenderPdfPageAsync(deck.Pdf!, thumb.Index, ThumbWidth, ThumbHeight);
                 }
                 catch (Exception ex) { App.LogError(ex); }
@@ -486,6 +516,13 @@ public class MainViewModel : ObservableObject
 
             _output = new OutputWindow(target) { KeyHandler = HandleKey };
             var window = _output;
+            // The presenter screen repeats the output (PDF, images, tappo); during a presentation
+            // played by its own program it shows that program's presenter view instead.
+            if (SelectedPresenterTarget is { Bounds: { } presenterBounds } presenterTarget && presenterBounds != target.Bounds)
+            {
+                window.Mirror = new OutputWindow(presenterTarget);
+                window.Mirror.Show();
+            }
             window.Closed += (_, _) =>
             {
                 // The test window can be closed with its own X button.
@@ -493,6 +530,11 @@ public class MainViewModel : ObservableObject
             };
             window.Show();
             IsLive = true;
+            // LibreOffice / PowerPoint must never keep the keyboard: the operator's keys and clicker
+            // drive LiveSlides for the whole show.
+            if (Application.Current?.MainWindow is { } main)
+                _focusGuard = new FocusGuard(new System.Windows.Interop.WindowInteropHelper(main).Handle, main.Dispatcher);
+            PreparePlayer(target);
         }
         await GoToAsync(index);
     }
@@ -502,6 +544,9 @@ public class MainViewModel : ObservableObject
         var window = _output;
         _output = null;
         window?.Close();
+        _focusGuard?.Dispose();
+        _focusGuard = null;
+        StopPlayer();
         if (!IsLive) return;
         IsLive = false;
         _showTicket++;
@@ -521,6 +566,8 @@ public class MainViewModel : ObservableObject
         if (!IsLive) return Task.CompletedTask;
         // Like PowerPoint's "B" key: the first press after a manual tappo just returns to the slide.
         if (_tappoOverride) return GoToAsync(_index);
+        // Inside a presentation played by its own program, the key goes to that program.
+        if (NativeDeckAt(_index) is not null) return StepNativeAsync(delta);
         var target = _index + delta;
         if (target < 0 || target >= _steps.Count) return Task.CompletedTask;
         return GoToAsync(target);
@@ -551,7 +598,7 @@ public class MainViewModel : ObservableObject
 
         _tappoOverride = true;
         _showTicket++;
-        _output?.Show(_tappoImage, FadeMs);
+        if (!await CoverNativeAsync(_tappoImage, FadeMs)) _output?.Show(_tappoImage, FadeMs);
         CurrentPreview = _tappoImage;
         UpdateLabels();
     }
@@ -571,7 +618,18 @@ public class MainViewModel : ObservableObject
         UpdateLabels();
 
         // Until the new slide is rendered the previous one simply stays on air: no black frame.
-        var image = await GetStepImageAsync(_steps[_index]);
+        var step = _steps[_index];
+        if (NativeDeckAt(_index) is { } nativeDeck)
+        {
+            if (await ShowNativeAsync(nativeDeck, step.PageIndex, ticket))
+            {
+                if (ticket == _showTicket) await PrerenderAroundAsync(ticket);
+                if (ticket == _showTicket) PreloadNative();
+                return;
+            }
+            if (ticket != _showTicket) return;
+        }
+        var image = await GetStepImageAsync(step);
         if (ticket != _showTicket) return; // a newer command arrived meanwhile
         if (image is null)
         {
@@ -579,10 +637,12 @@ public class MainViewModel : ObservableObject
         }
         else
         {
-            _output?.Show(image, FadeMs);
+            // Leaving a presentation played by its own program: this image fades in over it.
+            if (!await CoverNativeAsync(image, FadeMs)) _output?.Show(image, FadeMs);
             CurrentPreview = image;
         }
         await PrerenderAroundAsync(ticket);
+        if (ticket == _showTicket) PreloadNative();
     }
 
     /// <summary>Renders the neighbours ahead of time so the next press is instant.</summary>
@@ -623,8 +683,7 @@ public class MainViewModel : ObservableObject
     {
         try
         {
-            return deck.IsImage
-                ? await SlideRenderer.LoadImageAsync(deck.FilePath, _renderWidth, _renderHeight)
+            return deck.IsImage ? await SlideRenderer.LoadImageAsync(deck.FilePath, _renderWidth, _renderHeight)
                 : await SlideRenderer.RenderPdfPageAsync(deck.Pdf!, page, _renderWidth, _renderHeight);
         }
         catch (Exception ex)
@@ -798,5 +857,6 @@ public class MainViewModel : ObservableObject
         _loadCts.Cancel();
         _remote.Dispose();
         Stop();
+        _player?.Dispose();
     }
 }

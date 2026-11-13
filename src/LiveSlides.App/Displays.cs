@@ -32,13 +32,26 @@ public static class Displays
             if (!EnumDisplaySettings(device.DeviceName, ENUM_CURRENT_SETTINGS, ref mode)) continue;
 
             var isPrimary = (device.StateFlags & DISPLAY_DEVICE_PRIMARY_DEVICE) != 0;
-            // Number from the device name ("\\.\DISPLAY3" -> 3) so it matches Windows' own Display Settings.
-            var match = Regex.Match(device.DeviceName, @"DISPLAY(\d+)", RegexOptions.IgnoreCase);
-            var number = match.Success ? int.Parse(match.Groups[1].Value) : result.Count + 1;
-            var label = $"Monitor {number}: {GetMonitorName(device.DeviceName)} — {mode.dmPelsWidth}×{mode.dmPelsHeight}"
-                        + (isPrimary ? " (principale)" : "");
-            result.Add(new OutputTarget(device.DeviceName, label,
+            result.Add(new OutputTarget(device.DeviceName, GetMonitorName(device.DeviceName),
                 new ScreenBounds(mode.dmPositionX, mode.dmPositionY, mode.dmPelsWidth, mode.dmPelsHeight), isPrimary));
+        }
+
+        // Named by position, not by number: the number in "\\.\DISPLAY3" is often not the one
+        // Windows' Display settings show, and two different numbers for one screen confuse.
+        var byPosition = result.OrderBy(t => t.Bounds!.X).ThenBy(t => t.Bounds!.Y).ToList();
+        for (var i = 0; i < byPosition.Count; i++)
+        {
+            var t = byPosition[i];
+            var where = byPosition.Count switch
+            {
+                1 => "",
+                2 => i == 0 ? "a sinistra" : "a destra",
+                3 => i switch { 0 => "a sinistra", 1 => "al centro", _ => "a destra" },
+                _ => $"{i + 1}° da sinistra"
+            };
+            var label = (t.IsPrimary ? "Principale" : "Schermo") + (where == "" ? "" : " " + where)
+                        + $" ({t.Bounds!.Width}×{t.Bounds.Height}) — {t.Label}";
+            result[result.IndexOf(t)] = t with { Label = label };
         }
 
         result.Add(new OutputTarget(OutputTarget.WindowId, "Finestra di prova (ridimensionabile)", null, false));
